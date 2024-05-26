@@ -11,7 +11,7 @@ class DataAnalyzer(ABC):
 
 class GDPDataAnalyzer(DataAnalyzer):
     def analyze(self):
-        self.data['GDP Growth'] = self.data['GDP'].pct_change() * 100
+        self.data['GDP Growt'] = self.data['GDP'].pct_change() * 100
         self.data['GNP Growth'] = self.data['GNP'].pct_change() * 100
         return self.data
 
