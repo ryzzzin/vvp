@@ -1,61 +1,147 @@
+from abc import ABC, abstractmethod
 import pandas as pd
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 import numpy as np
 
-# Шаг 1: Загрузка данных
+class DataLoader(ABC):
+    @abstractmethod
+    def load_data(self, file_path: str) -> pd.DataFrame:
+        pass
+
+class CSVDataLoader(DataLoader):
+    def load_data(self, file_path: str) -> pd.DataFrame:
+        return pd.read_csv(file_path)
+
+class DataAnalyzer(ABC):
+    def __init__(self, data: pd.DataFrame):
+        self.data = data
+
+    @abstractmethod
+    def analyze(self) -> pd.DataFrame:
+        pass
+
+    @abstractmethod
+    def calculate_growth(self):
+        pass
+
+class RunDataAnalyzer(DataAnalyzer):
+    def analyze(self) -> pd.DataFrame:
+        self.data['Дата'] = pd.to_datetime(self.data['Дата'], format='%Y-%m-%d')
+        self.data['День недели'] = self.data['Дата'].dt.dayofweek
+        return self.data
+
+    def calculate_growth(self):
+        weekend_data = self.data[self.data['День недели'] >= 5]
+        total_distance_weekends = weekend_data['Пройденное расстояние (км)'].sum()
+        print(f'Сумма пройденных км за все выходные дни: {total_distance_weekends} км')
+        return total_distance_weekends
+
+class DataVisualizer(ABC):
+    def __init__(self, data: pd.DataFrame):
+        self.data = data
+
+    @abstractmethod
+    def visualize(self):
+        pass
+
+class RunDataVisualizer(DataVisualizer):
+    def visualize(self):
+        fig, axes = plt.subplots(3, 1, figsize=(12, 7.5))
+
+        # Переименование окна
+        fig.canvas.manager.set_window_title('Run Data Visualization')
+
+        # График 1: Длительность бега по дням
+        axes[0].plot(self.data['Дата'], self.data['Длительность бега (минуты)'], marker='o', linestyle='-')
+        axes[0].set_title('Длительность бега по дням')
+        axes[0].set_xlabel('Дата')
+        axes[0].set_ylabel('Длительность (минуты)')
+
+        # График 2: Пройденное расстояние по дням
+        axes[1].plot(self.data['Дата'], self.data['Пройденное расстояние (км)'], marker='o', linestyle='-')
+        axes[1].set_title('Пройденное расстояние по дням')
+        axes[1].set_xlabel('Дата')
+        axes[1].set_ylabel('Расстояние (км)')
+
+        # График 3: Прогнозирование методом скользящей средней
+        N = 7  # Количество дней для прогнозирования
+        self.data['Скользящая средняя (км)'] = self.data['Пройденное расстояние (км)'].rolling(window=3).mean()
+
+        # Экстраполяция на N дней
+        last_known_date = self.data['Дата'].iloc[-1]
+        forecast_dates = [last_known_date + pd.Timedelta(days=i) for i in range(1, N+1)]
+        rolling_mean = self.data['Скользящая средняя (км)'].dropna().values
+
+        forecast_values = []
+        for i in range(N):
+            if len(rolling_mean) > 3:
+                new_value = np.mean(rolling_mean[-3:])
+            else:
+                new_value = np.mean(rolling_mean)
+            forecast_values.append(new_value)
+            rolling_mean = np.append(rolling_mean, new_value)
+
+        forecast_df = pd.DataFrame({'Дата': forecast_dates, 'Прогноз (км)': forecast_values})
+
+        axes[2].plot(self.data['Дата'], self.data['Пройденное расстояние (км)'], marker='o', linestyle='-', label='Фактические данные')
+        axes[2].plot(self.data['Дата'], self.data['Скользящая средняя (км)'], marker='o', linestyle='-', label='Скользящая средняя')
+        axes[2].plot(forecast_df['Дата'], forecast_df['Прогноз (км)'], marker='o', linestyle='-', color='r', label='Прогноз')
+        axes[2].set_title('Прогноз пройденного расстояния методом скользящей средней')
+        axes[2].set_xlabel('Дата')
+        axes[2].set_ylabel('Расстояние (км)')
+        axes[2].legend()
+
+        plt.tight_layout()
+        plt.subplots_adjust(hspace=0.4)  # Увеличить расстояние между подграфиками
+        plt.show()
+
+class ForecastModel(ABC):
+    def __init__(self, data: pd.DataFrame):
+        self.data = data
+
+    @abstractmethod
+    def forecast(self, days: int) -> pd.DataFrame:
+        pass
+
+class SimpleMovingAverageForecast(ForecastModel):
+    def forecast(self, days: int) -> pd.DataFrame:
+        self.data['Скользящая средняя (км)'] = self.data['Пройденное расстояние (км)'].rolling(window=3).mean()
+
+        # Экстраполяция на заданное количество дней
+        last_known_date = self.data['Дата'].iloc[-1]
+        forecast_dates = [last_known_date + pd.Timedelta(days=i) for i in range(1, days+1)]
+        rolling_mean = self.data['Скользящая средняя (км)'].dropna().values
+
+        forecast_values = []
+        for i in range(days):
+            if len(rolling_mean) > 3:
+                new_value = np.mean(rolling_mean[-3:])
+            else:
+                new_value = np.mean(rolling_mean)
+            forecast_values.append(new_value)
+            rolling_mean = np.append(rolling_mean, new_value)
+
+        forecast_df = pd.DataFrame({'Дата': forecast_dates, 'Прогноз (км)': forecast_values})
+        return forecast_df
+
+# Пример использования:
 file_path = 'run_data.csv'  # Замените на путь к вашему файлу
-data = pd.read_csv(file_path)
 
-# Преобразование столбца с датами в формат datetime
-data['Дата'] = pd.to_datetime(data['Дата'], format='%Y-%m-%d')
+# Загрузка данных
+loader = CSVDataLoader()
+data = loader.load_data(file_path)
 
-# Шаг 2: Вывод данных в табличном формате
-print(data)
+# Анализ данных
+analyzer = RunDataAnalyzer(data)
+analyzed_data = analyzer.analyze()
+analyzer.calculate_growth()
 
-# Шаг 3: Построение графиков зависимости по двум параметрам от дня
-fig, axes = plt.subplots(3, 1, figsize=(12, 7.5))
+# Визуализация данных
+visualizer = RunDataVisualizer(analyzed_data)
+visualizer.visualize()
 
-# График 1: Длительность бега по дням
-axes[0].plot(data['Дата'], data['Длительность бега (минуты)'], marker='o', linestyle='-')
-axes[0].set_title('Длительность бега по дням')
-axes[0].set_xlabel('Дата')
-axes[0].set_ylabel('Длительность (минуты)')
-
-# График 2: Пройденное расстояние по дням
-axes[1].plot(data['Дата'], data['Пройденное расстояние (км)'], marker='o', linestyle='-')
-axes[1].set_title('Пройденное расстояние по дням')
-axes[1].set_xlabel('Дата')
-axes[1].set_ylabel('Расстояние (км)')
-
-# График 3: Прогнозирование методом скользящей средней
-N = 7  # Количество дней для прогнозирования
-data['Скользящая средняя (км)'] = data['Пройденное расстояние (км)'].rolling(window=3).mean()
-
-# Экстраполяция на N дней
-last_known_date = data['Дата'].iloc[-1]
-forecast_dates = [last_known_date + pd.Timedelta(days=i) for i in range(1, N+1)]
-rolling_mean = data['Скользящая средняя (км)'].dropna().values
-
-forecast_values = []
-for i in range(N):
-    if len(rolling_mean) > 3:
-        new_value = np.mean(rolling_mean[-3:])
-    else:
-        new_value = np.mean(rolling_mean)
-    forecast_values.append(new_value)
-    rolling_mean = np.append(rolling_mean, new_value)
-
-forecast_df = pd.DataFrame({'Дата': forecast_dates, 'Прогноз (км)': forecast_values})
-
-axes[2].plot(data['Дата'], data['Пройденное расстояние (км)'], marker='o', linestyle='-', label='Фактические данные')
-axes[2].plot(data['Дата'], data['Скользящая средняя (км)'], marker='o', linestyle='-', label='Скользящая средняя')
-axes[2].plot(forecast_df['Дата'], forecast_df['Прогноз (км)'], marker='o', linestyle='-', color='r', label='Прогноз')
-axes[2].set_title('Прогноз пройденного расстояния методом скользящей средней')
-axes[2].set_xlabel('Дата')
-axes[2].set_ylabel('Расстояние (км)')
-axes[2].legend()
-
-plt.tight_layout()
-plt.subplots_adjust(hspace=0.35)  # Увеличить расстояние между подграфиками
-plt.show()
+# Прогнозирование данных
+forecast_model = SimpleMovingAverageForecast(analyzed_data)
+forecast = forecast_model.forecast(7)
+print(forecast)
