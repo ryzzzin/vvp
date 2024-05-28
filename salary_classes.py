@@ -1,4 +1,5 @@
 from matplotlib import pyplot as plt
+import numpy as np
 import pandas as pd
 from data_analyzer import DataAnalyzer
 from data_loader import DataLoader
@@ -37,13 +38,38 @@ class SalaryVisualizer(DataVisualizer):
 
 class SalaryForecastModel(ForecastModel):
     def forecast(self, years: int) -> pd.DataFrame:
+        # Вычисление скользящего среднего
+        self.data['Median Salary Men Rolling Mean'] = self.data['Median Salary Men'].rolling(window=3).mean()
+        self.data['Median Salary Women Rolling Mean'] = self.data['Median Salary Women'].rolling(window=3).mean()
+
+        # Экстраполяция на заданное количество лет
         last_year = self.data['Year'].iloc[-1]
         forecast_years = [last_year + i for i in range(1, years + 1)]
-        forecast_salaries_men = self.data['Median Salary Men'].rolling(window=3).mean().iloc[-1]
-        forecast_salaries_women = self.data['Median Salary Women'].rolling(window=3).mean().iloc[-1]
+        rolling_mean_men = self.data['Median Salary Men Rolling Mean'].dropna().values
+        rolling_mean_women = self.data['Median Salary Women Rolling Mean'].dropna().values
+
+        forecast_salaries_men = []
+        forecast_salaries_women = []
+
+        for i in range(years):
+            if len(rolling_mean_men) > 3:
+                new_value_men = np.mean(rolling_mean_men[-3:])
+            else:
+                new_value_men = np.mean(rolling_mean_men)
+            forecast_salaries_men.append(new_value_men)
+            rolling_mean_men = np.append(rolling_mean_men, new_value_men)
+
+            if len(rolling_mean_women) > 3:
+                new_value_women = np.mean(rolling_mean_women[-3:])
+            else:
+                new_value_women = np.mean(rolling_mean_women)
+            forecast_salaries_women.append(new_value_women)
+            rolling_mean_women = np.append(rolling_mean_women, new_value_women)
+
         forecast_data = pd.DataFrame({
             'Year': forecast_years,
-            'Salary Forecast Men': [forecast_salaries_men] * years,
-            'Salary Forecast Women': [forecast_salaries_women] * years
+            'Salary Forecast Men': forecast_salaries_men,
+            'Salary Forecast Women': forecast_salaries_women
         })
+
         return forecast_data
