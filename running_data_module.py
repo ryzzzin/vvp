@@ -4,27 +4,11 @@ import matplotlib.pyplot as plt
 from matplotlib.gridspec import GridSpec
 from datetime import datetime, timedelta
 import numpy as np
-
-class DataLoader(ABC):
-    @abstractmethod
-    def load_data(self, file_path: str) -> pd.DataFrame:
-        pass
+from interfaces import DataAnalyzer, DataLoader, DataVisualizer, ForecastModel
 
 class CSVDataLoader(DataLoader):
     def load_data(self, file_path: str) -> pd.DataFrame:
         return pd.read_csv(file_path)
-
-class DataAnalyzer(ABC):
-    def __init__(self, data: pd.DataFrame):
-        self.data = data
-
-    @abstractmethod
-    def analyze(self) -> pd.DataFrame:
-        pass
-
-    @abstractmethod
-    def calculate_growth(self):
-        pass
 
 class RunDataAnalyzer(DataAnalyzer):
     def analyze(self) -> pd.DataFrame:
@@ -38,13 +22,6 @@ class RunDataAnalyzer(DataAnalyzer):
         print(f'Сумма пройденных км за все выходные дни: {total_distance_weekends} км')
         return total_distance_weekends
 
-class DataVisualizer(ABC):
-    def __init__(self, data: pd.DataFrame):
-        self.data = data
-
-    @abstractmethod
-    def visualize(self):
-        pass
 
 class RunDataVisualizer(DataVisualizer):
     def visualize(self):
@@ -123,14 +100,6 @@ class RunDataVisualizer(DataVisualizer):
         plt.tight_layout()
         plt.show()
 
-class ForecastModel(ABC):
-    def __init__(self, data: pd.DataFrame):
-        self.data = data
-
-    @abstractmethod
-    def forecast(self, days: int) -> pd.DataFrame:
-        pass
-
 class SimpleMovingAverageForecast(ForecastModel):
     def forecast(self, days: int) -> pd.DataFrame:
         self.data['Скользящая средняя (км)'] = self.data['Пройденное расстояние (км)'].rolling(window=3).mean()
@@ -151,24 +120,3 @@ class SimpleMovingAverageForecast(ForecastModel):
 
         forecast_df = pd.DataFrame({'Дата': forecast_dates, 'Прогноз (км)': forecast_values})
         return forecast_df
-
-# Пример использования:
-file_path = 'run_data.csv'
-
-# Загрузка данных
-loader = CSVDataLoader()
-data = loader.load_data(file_path)
-
-# Анализ данных
-analyzer = RunDataAnalyzer(data)
-analyzed_data = analyzer.analyze()
-analyzer.calculate_growth()
-
-# Визуализация данных
-visualizer = RunDataVisualizer(analyzed_data)
-visualizer.visualize()
-
-# Прогнозирование данных
-forecast_model = SimpleMovingAverageForecast(analyzed_data)
-forecast = forecast_model.forecast(7)
-print(forecast)
