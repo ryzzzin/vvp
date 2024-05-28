@@ -1,9 +1,11 @@
+from tkinter import filedialog, messagebox, ttk
 import tkinter as tk
-from tkinter import ttk, filedialog, messagebox
-import pandas as pd
+
 from matplotlib import pyplot as plt
 from data_fabric import DataFactory
 
+
+# Пример интерфейса
 class App:
     def __init__(self, root):
         self.root = root
@@ -20,9 +22,6 @@ class App:
         
         self.radio_gdp = tk.Radiobutton(root, text="GDP", variable=self.data_type, value="gdp")
         self.radio_gdp.pack(pady=5)
-        
-        self.radio_run = tk.Radiobutton(root, text="Run", variable=self.data_type, value="run")
-        self.radio_run.pack(pady=5)
         
         self.button = tk.Button(root, text="Load Data", command=self.load_data)
         self.button.pack(pady=20)
@@ -99,15 +98,6 @@ def main(data_type: str, file_path: str, display_callback):
         plt.title('GDP Forecast')
         plt.xlabel('Year')
         plt.ylabel('GDP')
-        plt.legend()
-        plt.show()
-    elif data_type == 'run':
-        plt.figure(figsize=(10, 5))
-        plt.plot(analyzed_data['Year'], analyzed_data['Distance'], label='Actual Distance')
-        plt.plot(forecast['Year'], forecast['Distance Forecast'], label='Forecast Distance', linestyle='--')
-        plt.title('Run Distance Forecast')
-        plt.xlabel('Year')
-        plt.ylabel('Distance')
         plt.legend()
         plt.show()
 
