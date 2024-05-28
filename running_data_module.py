@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec
 from datetime import datetime, timedelta
 import numpy as np
 
@@ -27,8 +28,8 @@ class DataAnalyzer(ABC):
 
 class RunDataAnalyzer(DataAnalyzer):
     def analyze(self) -> pd.DataFrame:
-        self.data['Дата'] = pd.to_datetime(self.data['Дата'], format='%Y-%m-%d')
-        self.data['День недели'] = self.data['Дата'].dt.dayofweek
+        self.data['Дата'] = pd.to_datetime(self.data['Дата'], format='%Y-%m-%d').dt.date
+        self.data['День недели'] = pd.to_datetime(self.data['Дата']).dt.dayofweek
         return self.data
 
     def calculate_growth(self):
@@ -47,30 +48,57 @@ class DataVisualizer(ABC):
 
 class RunDataVisualizer(DataVisualizer):
     def visualize(self):
-        fig, axes = plt.subplots(3, 1, figsize=(12, 7.5))
+        fig1 = plt.figure(figsize=(14.5, 7.5))
+        fig1.canvas.manager.set_window_title('Run Data Visualization - Graphs')
 
-        # Переименование окна
-        fig.canvas.manager.set_window_title('Run Data Visualization')
+        # Создание первой группы графиков
+        gs1 = GridSpec(2, 1)
+        ax1 = fig1.add_subplot(gs1[0, 0])
+        ax2 = fig1.add_subplot(gs1[1, 0])
 
         # График 1: Длительность бега по дням
-        axes[0].plot(self.data['Дата'], self.data['Длительность бега (минуты)'], marker='o', linestyle='-')
-        axes[0].set_title('Длительность бега по дням')
-        axes[0].set_xlabel('Дата')
-        axes[0].set_ylabel('Длительность (минуты)')
+        ax1.plot(self.data['Дата'], self.data['Длительность бега (минуты)'], marker='o', linestyle='-')
+        ax1.set_title('Длительность бега по дням')
+        ax1.set_xlabel('Дата')
+        ax1.set_ylabel('Длительность (минуты)')
 
         # График 2: Пройденное расстояние по дням
-        axes[1].plot(self.data['Дата'], self.data['Пройденное расстояние (км)'], marker='o', linestyle='-')
-        axes[1].set_title('Пройденное расстояние по дням')
-        axes[1].set_xlabel('Дата')
-        axes[1].set_ylabel('Расстояние (км)')
+        ax2.plot(self.data['Дата'], self.data['Пройденное расстояние (км)'], marker='o', linestyle='-')
+        ax2.set_title('Пройденное расстояние по дням')
+        ax2.set_xlabel('Дата')
+        ax2.set_ylabel('Расстояние (км)')
 
-        # График 3: Прогнозирование методом скользящей средней
+        plt.tight_layout()
+        plt.subplots_adjust(hspace=0.4)
+        plt.show()
+
+        # Создание окна для таблицы
+        fig2 = plt.figure(figsize=(14.5, 7.5))
+        fig2.canvas.manager.set_window_title('Run Data Visualization - Table')
+
+        ax_table = fig2.add_subplot(111)
+        ax_table.axis('tight')
+        ax_table.axis('off')
+        table_data = self.data[['Дата', 'Длительность бега (минуты)', 'Пройденное расстояние (км)', 'Максимальная скорость (км/ч)', 'Минимальная скорость (км/ч)', 'Средняя скорость (км/ч)', 'Средний пульс (уд/мин)']]
+        table = ax_table.table(cellText=table_data.values, colLabels=table_data.columns, cellLoc='center', loc='center')
+        table.auto_set_font_size(False)
+        table.set_fontsize(9)
+        table.scale(1.2, 1.2)
+
+        plt.tight_layout()
+        plt.show()
+
+        # Создание окна для третьего графика
+        fig3 = plt.figure(figsize=(14.5, 7.5))
+        fig3.canvas.manager.set_window_title('Run Data Visualization - Forecast')
+
+        ax3 = fig3.add_subplot(111)
         N = 7  # Количество дней для прогнозирования
         self.data['Скользящая средняя (км)'] = self.data['Пройденное расстояние (км)'].rolling(window=3).mean()
 
         # Экстраполяция на N дней
         last_known_date = self.data['Дата'].iloc[-1]
-        forecast_dates = [last_known_date + pd.Timedelta(days=i) for i in range(1, N+1)]
+        forecast_dates = [last_known_date + timedelta(days=i) for i in range(1, N+1)]
         rolling_mean = self.data['Скользящая средняя (км)'].dropna().values
 
         forecast_values = []
@@ -84,16 +112,15 @@ class RunDataVisualizer(DataVisualizer):
 
         forecast_df = pd.DataFrame({'Дата': forecast_dates, 'Прогноз (км)': forecast_values})
 
-        axes[2].plot(self.data['Дата'], self.data['Пройденное расстояние (км)'], marker='o', linestyle='-', label='Фактические данные')
-        axes[2].plot(self.data['Дата'], self.data['Скользящая средняя (км)'], marker='o', linestyle='-', label='Скользящая средняя')
-        axes[2].plot(forecast_df['Дата'], forecast_df['Прогноз (км)'], marker='o', linestyle='-', color='r', label='Прогноз')
-        axes[2].set_title('Прогноз пройденного расстояния методом скользящей средней')
-        axes[2].set_xlabel('Дата')
-        axes[2].set_ylabel('Расстояние (км)')
-        axes[2].legend()
+        ax3.plot(self.data['Дата'], self.data['Пройденное расстояние (км)'], marker='o', linestyle='-', label='Фактические данные')
+        ax3.plot(self.data['Дата'], self.data['Скользящая средняя (км)'], marker='o', linestyle='-', label='Скользящая средняя')
+        ax3.plot(forecast_df['Дата'], forecast_df['Прогноз (км)'], marker='o', linestyle='-', color='r', label='Прогноз')
+        ax3.set_title('Прогноз пройденного расстояния методом скользящей средней')
+        ax3.set_xlabel('Дата')
+        ax3.set_ylabel('Расстояние (км)')
+        ax3.legend()
 
         plt.tight_layout()
-        plt.subplots_adjust(hspace=0.4)  # Увеличить расстояние между подграфиками
         plt.show()
 
 class ForecastModel(ABC):
@@ -110,7 +137,7 @@ class SimpleMovingAverageForecast(ForecastModel):
 
         # Экстраполяция на заданное количество дней
         last_known_date = self.data['Дата'].iloc[-1]
-        forecast_dates = [last_known_date + pd.Timedelta(days=i) for i in range(1, days+1)]
+        forecast_dates = [last_known_date + timedelta(days=i) for i in range(1, days+1)]
         rolling_mean = self.data['Скользящая средняя (км)'].dropna().values
 
         forecast_values = []
@@ -126,7 +153,7 @@ class SimpleMovingAverageForecast(ForecastModel):
         return forecast_df
 
 # Пример использования:
-file_path = 'run_data.csv'  # Замените на путь к вашему файлу
+file_path = 'run_data.csv'
 
 # Загрузка данных
 loader = CSVDataLoader()
