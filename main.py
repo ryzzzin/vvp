@@ -1,8 +1,11 @@
+# main.py
+
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import pandas as pd
 from matplotlib import pyplot as plt
 from data_fabric import DataFactory
+from currency_analysis import CurrencyDataLoader, CurrencyDataAnalyzer, CurrencyVisualizer, CurrencyForecastModel
 
 class App:
     def __init__(self, root):
@@ -23,6 +26,9 @@ class App:
         
         self.radio_run = tk.Radiobutton(root, text="Run", variable=self.data_type, value="run")
         self.radio_run.pack(pady=5)
+        
+        self.radio_currency = tk.Radiobutton(root, text="Currency", variable=self.data_type, value="currency")
+        self.radio_currency.pack(pady=5)
         
         self.button = tk.Button(root, text="Load Data", command=self.load_data)
         self.button.pack(pady=20)
@@ -52,64 +58,87 @@ class App:
             self.tree.insert("", "end", values=list(row))
 
 def main(data_type: str, file_path: str, display_callback):
-    factory = DataFactory(data_type)
-    
-    # Загрузка данных
-    loader = factory.get_loader()
-    data = loader.load_data(file_path)
+    if data_type == 'currency':
+        loader = CurrencyDataLoader()
+        data = loader.load_data(file_path)
+        display_callback(data)
+        
+        analyzer = CurrencyDataAnalyzer(data)
+        analyzed_data = analyzer.analyze()
+        
+        changes = analyzer.calculate_changes()
+        messagebox.showinfo("Changes Info", 
+                            f"Currency 1 - Max Increase: {changes['max_increase_currency_1'][1]} on {changes['max_increase_currency_1'][0]}\n"
+                            f"Currency 1 - Max Decrease: {changes['max_decrease_currency_1'][1]} on {changes['max_decrease_currency_1'][0]}\n"
+                            f"Currency 2 - Max Increase: {changes['max_increase_currency_2'][1]} on {changes['max_increase_currency_2'][0]}\n"
+                            f"Currency 2 - Max Decrease: {changes['max_decrease_currency_2'][1]} on {changes['max_decrease_currency_2'][0]}")
+        
+        visualizer = CurrencyVisualizer(analyzed_data)
+        visualizer.visualize()
+        
+        forecast_model = CurrencyForecastModel(analyzed_data)
+        forecast = forecast_model.forecast(7)  # Прогноз на 7 дней
+        forecast_model.visualize_forecast(forecast)
+        
+    else:
+        factory = DataFactory(data_type)
+        
+        # Загрузка данных
+        loader = factory.get_loader()
+        data = loader.load_data(file_path)
 
-    display_callback(data)
-    
-    # Анализ данных
-    analyzer = factory.get_analyzer(data)
-    analyzed_data = analyzer.analyze()
-    
-    if data_type == 'salary':
-        # Вычисление максимального и минимального процента роста/падения для зарплат
-        max_growth_men, min_growth_men, max_growth_women, min_growth_women = analyzer.calculate_growth()
-        messagebox.showinfo("Growth Info", f"Максимальный процент роста у мужчин: {max_growth_men}\n"
-                                           f"Минимальный процент падения у мужчин: {min_growth_men}\n"
-                                           f"Максимальный процент роста у женщин: {max_growth_women}\n"
-                                           f"Минимальный процент падения у женщин: {min_growth_women}")
-    
-    # Визуализация данных
-    visualizer = factory.get_visualizer(analyzed_data)
-    visualizer.visualize()
-    
-    # Прогнозирование
-    forecast_model = factory.get_forecast_model(analyzed_data)
-    forecast = forecast_model.forecast(5)  # Прогноз на 5 лет
-    
-    # Визуализация прогноза
-    if data_type == 'salary':
-        plt.figure(figsize=(10, 5))
-        plt.plot(analyzed_data['Year'], analyzed_data['Median Salary Men'], label='Actual Salary Men')
-        plt.plot(analyzed_data['Year'], analyzed_data['Median Salary Women'], label='Actual Salary Women')
-        plt.plot(forecast['Year'], forecast['Salary Forecast Men'], label='Forecast Salary Men', linestyle='--')
-        plt.plot(forecast['Year'], forecast['Salary Forecast Women'], label='Forecast Salary Women', linestyle='--')
-        plt.title('Median Salary Forecast')
-        plt.xlabel('Year')
-        plt.ylabel('Salary')
-        plt.legend()
-        plt.show()
-    elif data_type == 'gdp':
-        plt.figure(figsize=(10, 5))
-        plt.plot(analyzed_data['Year'], analyzed_data['GDP'], label='Actual GDP')
-        plt.plot(forecast['Year'], forecast['GDP Forecast'], label='Forecast GDP', linestyle='--')
-        plt.title('GDP Forecast')
-        plt.xlabel('Year')
-        plt.ylabel('GDP')
-        plt.legend()
-        plt.show()
-    elif data_type == 'run':
-        plt.figure(figsize=(10, 5))
-        plt.plot(analyzed_data['Year'], analyzed_data['Distance'], label='Actual Distance')
-        plt.plot(forecast['Year'], forecast['Distance Forecast'], label='Forecast Distance', linestyle='--')
-        plt.title('Run Distance Forecast')
-        plt.xlabel('Year')
-        plt.ylabel('Distance')
-        plt.legend()
-        plt.show()
+        display_callback(data)
+        
+        # Анализ данных
+        analyzer = factory.get_analyzer(data)
+        analyzed_data = analyzer.analyze()
+        
+        if data_type == 'salary':
+            # Вычисление максимального и минимального процента роста/падения для зарплат
+            max_growth_men, min_growth_men, max_growth_women, min_growth_women = analyzer.calculate_growth()
+            messagebox.showinfo("Growth Info", f"Максимальный процент роста у мужчин: {max_growth_men}\n"
+                                    f"Минимальный процент падения у мужчин: {min_growth_men}\n"
+                                    f"Максимальный процент роста у женщин: {max_growth_women}\n"
+                                    f"Минимальный процент падения у женщин: {min_growth_women}")
+        
+        # Визуализация данных
+        visualizer = factory.get_visualizer(analyzed_data)
+        visualizer.visualize()
+        
+        # Прогнозирование
+        forecast_model = factory.get_forecast_model(analyzed_data)
+        forecast = forecast_model.forecast(5)  # Прогноз на 5 лет
+        
+        # Визуализация прогноза
+        if data_type == 'salary':
+            plt.figure(figsize=(10, 5))
+            plt.plot(analyzed_data['Year'], analyzed_data['Median Salary Men'], label='Actual Salary Men')
+            plt.plot(analyzed_data['Year'], analyzed_data['Median Salary Women'], label='Actual Salary Women')
+            plt.plot(forecast['Year'], forecast['Salary Forecast Men'], label='Forecast Salary Men', linestyle='--')
+            plt.plot(forecast['Year'], forecast['Salary Forecast Women'], label='Forecast Salary Women', linestyle='--')
+            plt.title('Median Salary Forecast')
+            plt.xlabel('Year')
+            plt.ylabel('Salary')
+            plt.legend()
+            plt.show()
+        elif data_type == 'gdp':
+            plt.figure(figsize=(10, 5))
+            plt.plot(analyzed_data['Year'], analyzed_data['GDP'], label='Actual GDP')
+            plt.plot(forecast['Year'], forecast['GDP Forecast'], label='Forecast GDP', linestyle='--')
+            plt.title('GDP Forecast')
+            plt.xlabel('Year')
+            plt.ylabel('GDP')
+            plt.legend()
+            plt.show()
+        elif data_type == 'run':
+            plt.figure(figsize=(10, 5))
+            plt.plot(analyzed_data['Year'], analyzed_data['Distance'], label='Actual Distance')
+            plt.plot(forecast['Year'], forecast['Distance Forecast'], label='Forecast Distance', linestyle='--')
+            plt.title('Run Distance Forecast')
+            plt.xlabel('Year')
+            plt.ylabel('Distance')
+            plt.legend()
+            plt.show()
 
 if __name__ == "__main__":
     root = tk.Tk()
